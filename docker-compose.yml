@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_pw
+    volumes:
+      - kc_pgdata:/var/lib/postgresql/data
+    ports:
+      # Exposed for direct DB access from host tools.
+      - "25432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [kc-net]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    # start-dev is for local development. For production, switch to `start`
+    # and enable the commented KC_HOSTNAME / proxy settings below.
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_pw
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin      # initial master admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      # --- Required when running `start` in production ---
+      # KC_HOSTNAME: https://auth.yourdomain.com
+      # KC_PROXY_HEADERS: xforwarded
+      # KC_HTTP_ENABLED: "false"
+    volumes:
+      # Realm/Client/Mapper/Role are created automatically on boot from this file.
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+    ports:
+      - "24080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [kc-net]
+
+volumes:
+  kc_pgdata:
+
+networks:
+  kc-net:

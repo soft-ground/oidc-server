@@ -18,12 +18,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
+        token.idToken = account.id_token; // needed for Keycloak end-session
         token.expiresAt = account.expires_at;
       }
       return token;
     },
     async session({ session, token }) {
       (session as any).accessToken = token.accessToken;
+      (session as any).idToken = token.idToken;
       return session;
     },
   },

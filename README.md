@@ -56,25 +56,32 @@ docker compose up -d
 ```bash
 cd backend
 cp .env.example .env
-npm i @nestjs/passport passport passport-jwt jwks-rsa
-npm i -D @types/passport-jwt
+npm install
+npm run start:dev            # http://localhost:24041
 ```
 
-Import `AuthModule` in `AppModule`, then apply
-`@UseGuards(JwtAuthGuard, RolesGuard)` on controllers.
+`AuthModule` is wired into `AppModule`; `PostsController` shows
+`@UseGuards(JwtAuthGuard, RolesGuard)` with a `@Roles('admin')` route.
 
 ## 3. Frontend (Next.js)
 
 ```bash
 cd frontend
 cp .env.local.example .env.local   # set AUTH_SECRET: openssl rand -base64 32
-npm i next-auth
-npm run dev -- -p 24030            # run on the same port as NEXTAUTH_URL
+npm install
+npm run dev                        # http://localhost:24030
 ```
 
 Login flow: `signIn('keycloak')` → Keycloak (Authorization Code + PKCE) →
 callback exchanges the code for tokens → stored in an httpOnly session. API
 calls attach the token server-side (BFF pattern), see `lib/api.ts`.
+
+The seed users log in with password `password`: `alice` (admin) can POST
+`/posts`; `bob` (user) gets 403 on POST but 200 on GET.
+
+> This is a public client, so NextAuth performs the token exchange with PKCE and
+> no client secret (`token_endpoint_auth_method: 'none'`). For a confidential
+> client, set it to `client_secret_post` and provide `KEYCLOAK_CLIENT_SECRET`.
 
 ## Production checklist
 - `docker-compose.yml`: `start-dev` → `start`, set `KC_HOSTNAME` /

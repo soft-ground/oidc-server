@@ -2,11 +2,14 @@ import NextAuth from 'next-auth';
 import Keycloak from 'next-auth/providers/keycloak';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     Keycloak({
       clientId: process.env.KEYCLOAK_CLIENT_ID!,
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? '',
       issuer: process.env.KEYCLOAK_ISSUER!,
+      // Public client: PKCE only, no client secret at the token endpoint.
+      client: { token_endpoint_auth_method: 'none' },
     }),
   ],
   callbacks: {

@@ -12,7 +12,14 @@ interface HydraJwt {
   email?: string;
   roles?: string[];
   permissions?: string[];
-  ext?: { roles?: string[]; permissions?: string[]; [k: string]: unknown };
+  // Hydra nests the consent app's session.access_token claims under `ext`.
+  ext?: {
+    preferred_username?: string;
+    email?: string;
+    roles?: string[];
+    permissions?: string[];
+    [k: string]: unknown;
+  };
 }
 
 export interface OidcUser {
@@ -43,12 +50,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   // Validated payload becomes req.user.
   async validate(payload: HydraJwt): Promise<OidcUser> {
+    const ext = payload.ext ?? {};
     return {
       sub: payload.sub,
-      preferred_username: payload.preferred_username,
-      email: payload.email,
-      roles: payload.roles ?? payload.ext?.roles ?? [],
-      permissions: payload.permissions ?? payload.ext?.permissions ?? [],
+      preferred_username: payload.preferred_username ?? ext.preferred_username,
+      email: payload.email ?? ext.email,
+      roles: payload.roles ?? ext.roles ?? [],
+      permissions: payload.permissions ?? ext.permissions ?? [],
     };
   }
 }

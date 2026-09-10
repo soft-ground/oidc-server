@@ -1,3 +1,5 @@
+name: keycloak-oidc
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -39,7 +41,7 @@ services:
       # KC_HTTP_ENABLED: "false"
     volumes:
       # Realm/Client/Mapper/Role are created automatically on boot from this file.
-      - ./keycloak/import:/opt/keycloak/data/import:ro
+      - ./import:/opt/keycloak/data/import:ro
     ports:
       - "24080:8080"
     depends_on:

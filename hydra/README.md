@@ -64,8 +64,19 @@ npm install
 npm run start:dev            # http://localhost:24042
 ```
 
-Same guards as the Keycloak backend; `jwt.strategy.ts` reads `roles`/
-`permissions` from the token (with an `ext.*` fallback for Hydra's claim shape).
+Same guards as the Keycloak backend. Note the token shape: Hydra puts only
+standard claims at the JWT top level (`iss, sub, aud, client_id, scp, exp, ...`)
+and **nests the consent app's custom claims under `ext`**:
+
+```json
+{ "iss": "http://localhost:4444", "sub": "alice", "scp": ["openid", "..."],
+  "ext": { "roles": ["admin","user"], "permissions": ["read:posts", "..."],
+           "preferred_username": "alice", "email": "alice@example.com" } }
+```
+
+so `jwt.strategy.ts` reads `roles`/`permissions`/`preferred_username`/`email`
+from `ext` (with a top-level fallback). Contrast Keycloak, where protocol
+mappers place `roles`/`permissions` at the top level.
 
 ## 3. Frontend (Next.js)
 

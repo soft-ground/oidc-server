@@ -1,0 +1,82 @@
+name: hydra-oidc
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hydra-db
+    environment:
+      POSTGRES_DB: hydra
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD: hydra_pw
+    volumes:
+      - hydra_pgdata:/var/lib/postgresql/data
+    ports:
+      - "25433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [hydra-net]
+
+  # One-shot schema migration; must complete before Hydra starts.
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    command: migrate sql -e --yes
+    environment:
+      DSN: postgres://hydra:hydra_pw@postgres:5432/hydra?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks: [hydra-net]
+
+  hydra:
+    image: oryd/hydra:v2.2.0
+    container_name: hydra
+    command: serve all --dev   # --dev allows HTTP on localhost
+    environment:
+      DSN: postgres://hydra:hydra_pw@postgres:5432/hydra?sslmode=disable
+      URLS_SELF_ISSUER: http://localhost:4444
+      URLS_SELF_PUBLIC: http://localhost:4444
+      URLS_LOGIN: http://localhost:24071/login
+      URLS_CONSENT: http://localhost:24071/consent
+      URLS_LOGOUT: http://localhost:24071/logout
+      URLS_POST_LOGOUT_REDIRECT: http://localhost:24031
+      # Issue RS256 JWT access tokens (default is opaque) so a resource server
+      # can verify them via JWKS, matching the Keycloak setup.
+      STRATEGIES_ACCESS_TOKEN: jwt
+      SECRETS_SYSTEM: dev-only-hydra-system-secret-change-me
+      TTL_ACCESS_TOKEN: 1h
+      OAUTH2_EXPOSE_INTERNAL_ERRORS: "true"
+      LOG_LEVEL: info
+    ports:
+      - "4444:4444"   # public (OAuth2/OIDC)
+      - "4445:4445"   # admin
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    networks: [hydra-net]
+
+  # Login + consent UI (and OAuth2 client auto-provisioning) — the part Hydra
+  # does NOT provide out of the box.
+  login-consent:
+    build: ./login-consent
+    container_name: hydra-login-consent
+    environment:
+      HYDRA_ADMIN_URL: http://hydra:4445
+      PORT: "24071"
+      OAUTH2_CLIENT_ID: hydra-web
+      OAUTH2_REDIRECT_URI: http://localhost:24031/api/auth/callback/hydra
+      OAUTH2_POST_LOGOUT_URI: http://localhost:24031
+    ports:
+      - "24071:24071"
+    depends_on:
+      - hydra
+    networks: [hydra-net]
+
+volumes:
+  hydra_pgdata:
+
+networks:
+  hydra-net:

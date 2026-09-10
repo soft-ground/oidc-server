@@ -95,7 +95,7 @@ app.get('/login', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   const { challenge, username, password } = req.body;
-  const user = verify(username, password);
+  const user = await verify(username, password);
   if (!user) return res.status(401).send(loginForm(challenge, 'Invalid credentials'));
 
   const { redirect_to } = await acceptLogin(challenge, {
